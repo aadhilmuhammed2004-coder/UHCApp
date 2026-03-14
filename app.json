@@ -1,9 +1,15 @@
 {
   "expo": {
-    "name": "UHCApp",
+    "name": "BioLink",
     "slug": "uhcapp",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07090f"
+    },
     "android": {
       "package": "com.uhc.healthcard",
       "permissions": [

@@ -1,9 +1,17 @@
+import * as LocalAuthentication from 'expo-local-authentication';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, SafeAreaView
+  Dimensions, ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { LineChart } from 'react-native-chart-kit';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const screenWidth = Dimensions.get('window').width - 40;
 
 export default function ProfileScreen({ route }) {
   const params = route.params;
@@ -13,6 +21,8 @@ export default function ProfileScreen({ route }) {
 
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('vitals');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   const bmi = patient.height && patient.weight
     ? (parseFloat(patient.weight) /
@@ -29,6 +39,29 @@ export default function ProfileScreen({ route }) {
 
   const initials = patient.name
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  async function handleBiometricAuth() {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+    if (!hasHardware || !isEnrolled) {
+      setIsAuthenticated(true); // skip if no biometric
+      return;
+    }
+
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Verify your identity to view medical records',
+      fallbackLabel: 'Use PIN',
+      cancelLabel: 'Cancel',
+    });
+
+    if (result.success) {
+      setIsAuthenticated(true);
+      setAuthError('');
+    } else {
+      setAuthError('Authentication failed. Try again.');
+    }
+  }
 
   const tabs = [
     { key: 'vitals',        label: 'Vitals' },
@@ -92,166 +125,192 @@ export default function ProfileScreen({ route }) {
         {/* Medical Records */}
         <Text style={styles.sectionTitle}>Medical Records</Text>
 
-        {/* Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabsScroll}
-        >
-          {tabs.map(tab => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <Text style={[styles.tabText,
-                activeTab === tab.key && styles.tabTextActive]}>
-                {tab.label}
+        {!isAuthenticated ? (
+          <TouchableOpacity
+            style={styles.authCard}
+            onPress={handleBiometricAuth}
+          >
+            <Text style={styles.authIcon}>🔒</Text>
+            <Text style={styles.authTitle}>Medical Records Protected</Text>
+            <Text style={styles.authSub}>
+              Tap to authenticate with fingerprint
+            </Text>
+            {authError ? (
+              <Text style={styles.authError}>{authError}</Text>
+            ) : null}
+            <View style={styles.authBtn}>
+              <Text style={styles.authBtnText}>
+                Authenticate to View
               </Text>
-              {patient[tab.key]?.length > 0 && (
-                <View style={styles.tabBadge}>
-                  <Text style={styles.tabBadgeText}>
-                    {patient[tab.key].length}
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <>
+            {/* Tabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.tabsScroll}
+            >
+              {tabs.map(tab => (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                  onPress={() => setActiveTab(tab.key)}
+                >
+                  <Text style={[styles.tabText,
+                    activeTab === tab.key && styles.tabTextActive]}>
+                    {tab.label}
                   </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                  {patient[tab.key]?.length > 0 && (
+                    <View style={styles.tabBadge}>
+                      <Text style={styles.tabBadgeText}>
+                        {patient[tab.key].length}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-        {/* Tab Content */}
-        <View style={styles.tabContent}>
-          {activeTab === 'vitals' && (
-            <RecordList
-              records={patient.vitals}
-              empty="No vitals recorded yet"
-              renderCard={(item) => (
-                <RecordCard
-                  title={`BP: ${item.blood_pressure || '-'}`}
-                  subtitle={`Dr. ${item.recorded_by__username} · ${formatDate(item.recorded_at)}`}
-                  details={[
-                    { label: 'Blood Pressure', value: item.blood_pressure },
-                    { label: 'Blood Sugar',    value: item.blood_sugar },
-                    { label: 'Heart Rate',     value: item.heart_rate },
-                    { label: 'Temperature',    value: item.temperature },
-                    { label: 'SpO2',           value: item.spo2 },
-                    { label: 'Weight',         value: item.weight },
-                    { label: 'Recorded By',    value: item.recorded_by__username },
-                    { label: 'Date',           value: formatDate(item.recorded_at) },
-                  ]}
+            {/* Tab Content */}
+            <View style={styles.tabContent}>
+              {activeTab === 'vitals' && (
+                <>
+                  <VitalsGraph vitals={patient.vitals} />
+                  <RecordList
+                    records={patient.vitals}
+                    empty="No vitals recorded yet"
+                    renderCard={(item) => (
+                      <RecordCard
+                        title={`BP: ${item.blood_pressure || '-'}`}
+                        subtitle={`Dr. ${item.recorded_by__username} · ${formatDate(item.recorded_at)}`}
+                        details={[
+                          { label: 'Blood Pressure', value: item.blood_pressure },
+                          { label: 'Blood Sugar',    value: item.blood_sugar },
+                          { label: 'Heart Rate',     value: item.heart_rate },
+                          { label: 'Temperature',    value: item.temperature },
+                          { label: 'SpO2',           value: item.spo2 },
+                          { label: 'Weight',         value: item.weight },
+                          { label: 'Recorded By',    value: item.recorded_by__username },
+                          { label: 'Date',           value: formatDate(item.recorded_at) },
+                        ]}
+                      />
+                    )}
+                  />
+                </>
+              )}
+
+              {activeTab === 'lab_results' && (
+                <RecordList
+                  records={patient.lab_results}
+                  empty="No lab results yet"
+                  renderCard={(item) => (
+                    <RecordCard
+                      title={item.test_name}
+                      subtitle={`${item.status} · ${formatDate(item.added_at)}`}
+                      subtitleColor={statusColor(item.status)}
+                      details={[
+                        { label: 'Test Name',       value: item.test_name },
+                        { label: 'Result',          value: item.result },
+                        { label: 'Reference Range', value: item.reference_range },
+                        { label: 'Status',          value: item.status },
+                        { label: 'Notes',           value: item.notes },
+                        { label: 'Added By',        value: item.added_by__username },
+                        { label: 'Date',            value: formatDate(item.added_at) },
+                      ]}
+                    />
+                  )}
                 />
               )}
-            />
-          )}
 
-          {activeTab === 'lab_results' && (
-            <RecordList
-              records={patient.lab_results}
-              empty="No lab results yet"
-              renderCard={(item) => (
-                <RecordCard
-                  title={item.test_name}
-                  subtitle={`${item.status} · ${formatDate(item.added_at)}`}
-                  subtitleColor={statusColor(item.status)}
-                  details={[
-                    { label: 'Test Name',       value: item.test_name },
-                    { label: 'Result',          value: item.result },
-                    { label: 'Reference Range', value: item.reference_range },
-                    { label: 'Status',          value: item.status },
-                    { label: 'Notes',           value: item.notes },
-                    { label: 'Added By',        value: item.added_by__username },
-                    { label: 'Date',            value: formatDate(item.added_at) },
-                  ]}
+              {activeTab === 'imaging' && (
+                <RecordList
+                  records={patient.imaging}
+                  empty="No imaging reports yet"
+                  renderCard={(item) => (
+                    <RecordCard
+                      title={`${item.scan_type} - ${item.body_part}`}
+                      subtitle={`Dr. ${item.added_by__username} · ${formatDate(item.added_at)}`}
+                      details={[
+                        { label: 'Scan Type',  value: item.scan_type },
+                        { label: 'Body Part',  value: item.body_part },
+                        { label: 'Findings',   value: item.findings },
+                        { label: 'Impression', value: item.impression },
+                        { label: 'Added By',   value: item.added_by__username },
+                        { label: 'Date',       value: formatDate(item.added_at) },
+                      ]}
+                    />
+                  )}
                 />
               )}
-            />
-          )}
 
-          {activeTab === 'imaging' && (
-            <RecordList
-              records={patient.imaging}
-              empty="No imaging reports yet"
-              renderCard={(item) => (
-                <RecordCard
-                  title={`${item.scan_type} - ${item.body_part}`}
-                  subtitle={`Dr. ${item.added_by__username} · ${formatDate(item.added_at)}`}
-                  details={[
-                    { label: 'Scan Type',  value: item.scan_type },
-                    { label: 'Body Part',  value: item.body_part },
-                    { label: 'Findings',   value: item.findings },
-                    { label: 'Impression', value: item.impression },
-                    { label: 'Added By',   value: item.added_by__username },
-                    { label: 'Date',       value: formatDate(item.added_at) },
-                  ]}
+              {activeTab === 'prescriptions' && (
+                <RecordList
+                  records={patient.prescriptions}
+                  empty="No prescriptions yet"
+                  renderCard={(item) => (
+                    <RecordCard
+                      title={item.medicine}
+                      subtitle={`${item.dosage} · ${formatDate(item.added_at)}`}
+                      details={[
+                        { label: 'Medicine',     value: item.medicine },
+                        { label: 'Dosage',       value: item.dosage },
+                        { label: 'Duration',     value: item.duration },
+                        { label: 'Instructions', value: item.instructions },
+                        { label: 'Added By',     value: item.added_by__username },
+                        { label: 'Date',         value: formatDate(item.added_at) },
+                      ]}
+                    />
+                  )}
                 />
               )}
-            />
-          )}
 
-          {activeTab === 'prescriptions' && (
-            <RecordList
-              records={patient.prescriptions}
-              empty="No prescriptions yet"
-              renderCard={(item) => (
-                <RecordCard
-                  title={item.medicine}
-                  subtitle={`${item.dosage} · ${formatDate(item.added_at)}`}
-                  details={[
-                    { label: 'Medicine',     value: item.medicine },
-                    { label: 'Dosage',       value: item.dosage },
-                    { label: 'Duration',     value: item.duration },
-                    { label: 'Instructions', value: item.instructions },
-                    { label: 'Added By',     value: item.added_by__username },
-                    { label: 'Date',         value: formatDate(item.added_at) },
-                  ]}
+              {activeTab === 'surgeries' && (
+                <RecordList
+                  records={patient.surgeries}
+                  empty="No surgery records yet"
+                  renderCard={(item) => (
+                    <RecordCard
+                      title={item.procedure}
+                      subtitle={`${item.outcome} · ${formatDate(item.surgery_date)}`}
+                      subtitleColor={outcomeColor(item.outcome)}
+                      details={[
+                        { label: 'Procedure',     value: item.procedure },
+                        { label: 'Surgery Date',  value: formatDate(item.surgery_date) },
+                        { label: 'Surgeon',       value: item.surgeon },
+                        { label: 'Outcome',       value: item.outcome },
+                        { label: 'Notes',         value: item.notes },
+                        { label: 'Added By',      value: item.added_by__username },
+                      ]}
+                    />
+                  )}
                 />
               )}
-            />
-          )}
 
-          {activeTab === 'surgeries' && (
-            <RecordList
-              records={patient.surgeries}
-              empty="No surgery records yet"
-              renderCard={(item) => (
-                <RecordCard
-                  title={item.procedure}
-                  subtitle={`${item.outcome} · ${formatDate(item.surgery_date)}`}
-                  subtitleColor={outcomeColor(item.outcome)}
-                  details={[
-                    { label: 'Procedure',     value: item.procedure },
-                    { label: 'Surgery Date',  value: formatDate(item.surgery_date) },
-                    { label: 'Surgeon',       value: item.surgeon },
-                    { label: 'Outcome',       value: item.outcome },
-                    { label: 'Notes',         value: item.notes },
-                    { label: 'Added By',      value: item.added_by__username },
-                  ]}
+              {activeTab === 'diagnoses' && (
+                <RecordList
+                  records={patient.diagnoses}
+                  empty="No diagnoses yet"
+                  renderCard={(item) => (
+                    <RecordCard
+                      title={item.condition}
+                      subtitle={`${item.severity} · ${formatDate(item.added_at)}`}
+                      subtitleColor={severityColor(item.severity)}
+                      details={[
+                        { label: 'Condition', value: item.condition },
+                        { label: 'Severity',  value: item.severity },
+                        { label: 'Notes',     value: item.notes },
+                        { label: 'Added By',  value: item.added_by__username },
+                        { label: 'Date',      value: formatDate(item.added_at) },
+                      ]}
+                    />
+                  )}
                 />
               )}
-            />
-          )}
-
-          {activeTab === 'diagnoses' && (
-            <RecordList
-              records={patient.diagnoses}
-              empty="No diagnoses yet"
-              renderCard={(item) => (
-                <RecordCard
-                  title={item.condition}
-                  subtitle={`${item.severity} · ${formatDate(item.added_at)}`}
-                  subtitleColor={severityColor(item.severity)}
-                  details={[
-                    { label: 'Condition', value: item.condition },
-                    { label: 'Severity',  value: item.severity },
-                    { label: 'Notes',     value: item.notes },
-                    { label: 'Added By',  value: item.added_by__username },
-                    { label: 'Date',      value: formatDate(item.added_at) },
-                  ]}
-                />
-              )}
-            />
-          )}
-        </View>
+            </View>
+          </>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -317,6 +376,125 @@ function InfoCard({ label, value, color }) {
     <View style={styles.infoCard}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={[styles.infoValue, color && { color }]}>{value}</Text>
+    </View>
+  );
+}
+
+function VitalsGraph({ vitals }) {
+  const [selectedGraph, setSelectedGraph] = useState('bp');
+
+  if (!vitals || vitals.length < 2) {
+    return (
+      <View style={styles.graphEmpty}>
+        <Text style={styles.graphEmptyText}>
+          Need at least 2 vitals entries to show graph
+        </Text>
+      </View>
+    );
+  }
+
+  const reversed = [...vitals].reverse();
+
+  const graphData = {
+    bp: {
+      label: 'Blood Pressure',
+      color: '#f05252',
+      data: reversed.map(v => parseInt(v.blood_pressure?.split('/')[0]) || 0),
+    },
+    sugar: {
+      label: 'Blood Sugar',
+      color: '#f5a623',
+      data: reversed.map(v => parseFloat(v.blood_sugar) || 0),
+    },
+    hr: {
+      label: 'Heart Rate',
+      color: '#3d8ef8',
+      data: reversed.map(v => parseFloat(v.heart_rate) || 0),
+    },
+    spo2: {
+      label: 'SpO2',
+      color: '#00c9a7',
+      data: reversed.map(v => parseFloat(v.spo2) || 0),
+    },
+    weight: {
+      label: 'Weight',
+      color: '#a855f7',
+      data: reversed.map(v => parseFloat(v.weight) || 0),
+    },
+  };
+
+  const labels = reversed.map(v => {
+    const d = new Date(v.recorded_at);
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  });
+
+  const current = graphData[selectedGraph];
+
+  const graphBtns = [
+    { key: 'bp',     label: 'BP' },
+    { key: 'sugar',  label: 'Sugar' },
+    { key: 'hr',     label: 'HR' },
+    { key: 'spo2',   label: 'SpO2' },
+    { key: 'weight', label: 'Weight' },
+  ];
+
+  return (
+    <View style={styles.graphCard}>
+      <Text style={styles.graphTitle}>Vitals Trend</Text>
+
+      {/* Graph Type Buttons */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={{ marginBottom: 12 }}>
+        {graphBtns.map(btn => (
+          <TouchableOpacity
+            key={btn.key}
+            style={[styles.graphBtn,
+              selectedGraph === btn.key && {
+                backgroundColor: current.color,
+                borderColor: current.color
+              }
+            ]}
+            onPress={() => setSelectedGraph(btn.key)}
+          >
+            <Text style={[styles.graphBtnText,
+              selectedGraph === btn.key && { color: '#07090f' }
+            ]}>
+              {btn.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Chart */}
+      <Text style={[styles.graphLabel, { color: current.color }]}>
+        {current.label}
+      </Text>
+      <LineChart
+        data={{
+          labels: labels,
+          datasets: [{ data: current.data }],
+        }}
+        width={screenWidth}
+        height={200}
+        chartConfig={{
+          backgroundColor: '#121620',
+          backgroundGradientFrom: '#121620',
+          backgroundGradientTo: '#121620',
+          decimalPlaces: 0,
+          color: (opacity = 1) => current.color,
+          labelColor: () => '#8b96b0',
+          propsForDots: {
+            r: '5',
+            strokeWidth: '2',
+            stroke: current.color,
+          },
+          propsForBackgroundLines: {
+            stroke: '#1f2638',
+          },
+        }}
+        bezier
+        style={{ borderRadius: 12 }}
+      />
     </View>
   );
 }
@@ -466,5 +644,71 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 13, color: '#dce4f5',
     fontWeight: '500', flex: 2, textAlign: 'right',
+  },
+  authCard: {
+    backgroundColor: '#121620',
+    borderWidth: 1,
+    borderColor: '#1f2638',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  authIcon: { fontSize: 48, marginBottom: 16 },
+  authTitle: {
+    fontSize: 18, fontWeight: '700',
+    color: '#dce4f5', marginBottom: 8,
+  },
+  authSub: {
+    fontSize: 14, color: '#8b96b0',
+    textAlign: 'center', marginBottom: 20,
+  },
+  authError: {
+    fontSize: 13, color: '#f05252',
+    marginBottom: 12,
+  },
+  authBtn: {
+    backgroundColor: '#00c9a7',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  authBtnText: {
+    color: '#07090f',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  graphCard: {
+    backgroundColor: '#121620',
+    borderWidth: 1,
+    borderColor: '#1f2638',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+  },
+  graphTitle: {
+    fontSize: 14, fontWeight: '700',
+    color: '#dce4f5', marginBottom: 12,
+  },
+  graphLabel: {
+    fontSize: 12, fontWeight: '600',
+    marginBottom: 8, textTransform: 'uppercase',
+  },
+  graphBtn: {
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1,
+    borderColor: '#1f2638', marginRight: 8,
+    backgroundColor: '#121620',
+  },
+  graphBtnText: {
+    color: '#8b96b0', fontSize: 12, fontWeight: '600',
+  },
+  graphEmpty: {
+    backgroundColor: '#121620', borderWidth: 1,
+    borderColor: '#1f2638', borderRadius: 14,
+    padding: 20, alignItems: 'center', marginBottom: 16,
+  },
+  graphEmptyText: {
+    color: '#4a5470', fontSize: 13, textAlign: 'center',
   },
 });

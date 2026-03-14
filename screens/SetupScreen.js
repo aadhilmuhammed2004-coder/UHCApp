@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ScrollView, SafeAreaView, Alert
+  TextInput, ScrollView, Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
 export default function SetupScreen({ navigation }) {

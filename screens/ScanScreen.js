@@ -2,12 +2,12 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert, Animated,
-    SafeAreaView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { getApiUrl } from '../utils/api';
 
@@ -73,7 +73,6 @@ export default function ScanScreen() {
       // Clean up any non-printable characters
       nfcUid = nfcUid.replace(/[^\x20-\x7E]/g, '').trim();
 
-      Alert.alert('Debug', `Raw UID: "${nfcUid}" Length: ${nfcUid.length}`);
       if (!nfcUid) throw new Error('Could not decode card data');
 
       setStatus('found');
@@ -165,7 +164,7 @@ export default function ScanScreen() {
               style={styles.scanBtn}
               onPress={startScan}
             >
-              <Text style={styles.scanBtnText}>Tap Card to Scan</Text>
+              <Text style={styles.scanBtnText}>Press to Scan</Text>
             </TouchableOpacity>
           )}
 

@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -10,6 +9,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiUrl } from '../utils/api';
 
 export default function PinLoginScreen() {
@@ -87,6 +87,7 @@ export default function PinLoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="e.g. NFC004"
+            textAlign="center"
             placeholderTextColor="#4a5470"
             value={nfc_uid}
             onChangeText={setNfcUid}

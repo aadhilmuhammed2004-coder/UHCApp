@@ -1,1 +1,1 @@
-export const API_BASE_URL = 'https://roseann-uncombatable-comprehendingly.ngrok-free.dev';
+export const API_BASE_URL = 'https://web-production-2449a.up.railway.app';

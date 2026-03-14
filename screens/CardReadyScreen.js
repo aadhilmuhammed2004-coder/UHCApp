@@ -1,10 +1,11 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, Alert
+  ScrollView, Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CardReadyScreen({ route }) {
   const { nfc_uid, name } = route.params;
