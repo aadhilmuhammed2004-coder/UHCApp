@@ -21,6 +21,7 @@ export default function Layout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="cardready" />
         <Stack.Screen name="pinlogin" />
+        <Stack.Screen name="vault" />
       </Stack>
     </>
   );

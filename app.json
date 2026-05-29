@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BioLink",
-    "slug": "uhcapp",
+    "slug": "uhcapp-biolink",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -26,7 +26,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "db5e1cad-dada-40ec-ae9b-8c32ce08a2ec"
+        "projectId": "8718d65e-3f56-4459-b087-c1b37cd299a5"
       }
     }
   }
